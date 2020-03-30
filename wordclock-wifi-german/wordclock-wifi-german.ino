@@ -5,6 +5,7 @@
 */
 
 const int timeZone = 1; // UTC+1
+bool _startup = true;
 
 
 const unsigned int BUTTON = 19; // pin of button
@@ -218,10 +219,10 @@ void setup() {
 
   serialDelay(4000);
 
-  Serial.print("DisSLP");
+  //Serial.print("DisSLP");
   sendCommand("AT+SLEEP=0");
   
-  Serial.print("ConfHN");
+  //Serial.print("ConfHN");
   sendCommand("AT+CWHOSTNAME=\"Word Clock\"");
 
   char state = 0;
@@ -233,7 +234,7 @@ void setup() {
       Serial.println(state);
     }
 
-    Serial.print("QrySTAT ... ");
+    //Serial.print("QrySTAT ... ");
     if (sendCommand("AT+CIPSTATUS", -100))
     {
       if (ESPserial.find("STATUS:"))
@@ -242,16 +243,16 @@ void setup() {
       }
       else
       {
-        Serial.println("NoSTAT");
+        //Serial.println("NoSTAT");
       }
       // flush
       serialFlush(100);
     }
-    else
-      Serial.println("NoQRY");
+    //else
+    //  Serial.println("NoQRY");
   }
-  if (state == '2' or state == '3' or state == '4')
-    Serial.println("succ");
+  //if (state == '2' or state == '3' or state == '4')
+  //  Serial.println("succ");
 
   setTimezone(timeZone);
 }
@@ -313,8 +314,8 @@ void draw(const unsigned int aLeds[], const color aColor) {
  *   Called either when counter _t is passed or button is pressed for adjustment.
  */
 void nextTime() {
-  // Push time forward by 15min
-  _m = (_m + 15) % 60;
+  // Push time forward by 1min
+  _m = (_m + 1) % 60;
   if (_m == 15 && IDIOM == false)
     _h = (_h % 12) + 1;
   if (_m == 30 && IDIOM == true)
@@ -324,12 +325,14 @@ void nextTime() {
 }
 
 void setNewTime(uint8_t hour, uint8_t minute) {
-  _m = minute;
+  _m = minute % 60;
   _h = hour;
-  if (_m >= 15 && IDIOM == false)
-    _h = (_h % 12) + 1;
-  if (_m >= 30 && IDIOM == true)
-    _h = (_h % 12) + 1;
+  if (_m == 15 && IDIOM == false)
+    _h = _h + 1;
+  if (_m == 30 && IDIOM == true)
+    _h = _h + 1;
+
+  _h = _h % 12;
 
   drawTime();
 }
@@ -391,17 +394,23 @@ void drawTime(void) {
 void loop() {
   // Adjust clock time if button is pressed
   if (digitalRead(BUTTON) == false && _delay < millis()) {
+    _m = _m + 14;
     nextTime();
-    _t = millis() + 900000;
+    _t = millis() + 60000;
     _delay = millis() + 500;
   }
 
   // Move to the next quarter of the hour if the conter _t has been passed
   if (millis() > _t) {
-    bool autoTime = getDate(currentDate);
-    for (byte i = 5; i > 0 and currentDate.year == 1970; --i)
+    bool autoTime = false;
+    if (_startup or (_h == 4 and _m < 2))
     {
+      _startup = false;
       autoTime = getDate(currentDate);
+      for (byte i = 5; i > 0 and currentDate.year == 1970; --i)
+      {
+        autoTime = getDate(currentDate);
+      }
     }
     if (autoTime)
     {
@@ -412,12 +421,12 @@ void loop() {
       uint8_t minute = currentDate.minute;
       uint8_t second = currentDate.second;
 
-      Serial.print("Time: ");
-      Serial.print(hour);
-      Serial.print(":");
-      Serial.print(minute);
-      Serial.print(":");
-      Serial.println(second);
+      //Serial.print("Time: ");
+      //Serial.print(hour);
+      //Serial.print(":");
+      //Serial.print(minute);
+      //Serial.print(":");
+      //Serial.println(second);
       
       // forward 7 minutes, so displayed time is closer to the actual one
       minute += 7;
@@ -432,7 +441,7 @@ void loop() {
     {
       nextTime();
     }
-    _t = _t + 900000;
+    _t = _t + 60000;
   }
 
   // Lightup all LEDs of the screen
@@ -479,7 +488,7 @@ void serialDelay(unsigned long delay_time)
 bool getDate(date &dateStruct)
 {
   //Serial.print("Getting date ... ");
-  Serial.print("Gd ... ");
+  //Serial.print("Gd ... ");
   if (sendCommand("AT+CIPSNTPTIME?", -500))
   {
     delay(900);
@@ -506,41 +515,41 @@ bool getDate(date &dateStruct)
 
       if (dateStruct.year == 1970)
       {
-        Serial.println("1970, retry");
+        //Serial.println("1970, retry");
         return false;
       }
       else
       {
-        Serial.println("succ");
+        //Serial.println("succ");
         return true;
       }
     }
     else
     {
-      Serial.println("NoANS");
+      //Serial.println("NoANS");
       return false;
     }
   }
-  Serial.println("fail");
+  //Serial.println("fail");
   return false;
 }
 
 bool sendCommand(String cmd, int check)
 {
-  if (check >= 0)
-    Serial.print(" ... ");
+  //if (check >= 0)
+  //  Serial.print(" ... ");
 
   ESPserial.println(cmd);
   if (check >= 0) {
     serialWaitAvail(check);
     if (ESPserial.find("OK"))
     {
-      Serial.println("succ");
+      //Serial.println("succ");
       return true;
     }
     else
     {
-      Serial.println("fail");
+      //Serial.println("fail");
       return false;
     }
   }
@@ -558,14 +567,14 @@ bool setTimezone(int timeZone)
   char buf[24];
   sprintf(buf, "AT+CIPSNTPCFG=1,%i", timeZone);
   
-  Serial.print("SetTZ UTC");
-  if (timeZone < 0)
-    Serial.print(timeZone);
-  else
-  {
-    Serial.print("+");
-    Serial.print(timeZone);
-  }
+  //Serial.print("SetTZ UTC");
+  //if (timeZone < 0)
+  //  Serial.print(timeZone);
+  //else
+  //{
+  //  Serial.print("+");
+  //  Serial.print(timeZone);
+  //}
   return sendCommand(buf);
 }
 
@@ -636,13 +645,13 @@ void adjustSummertime(date &currentDate)
   {
     if (summer)
     {
-      Serial.print("Chng Win -> Sum");
+      //Serial.print("Chng Win -> Sum");
       --currentDate.hour;
       setTimezone(timeZone+summer);
     }
     else
     {
-      Serial.print("Chng Sum -> Win");
+      //Serial.print("Chng Sum -> Win");
       ++currentDate.hour;
       setTimezone(timeZone);
     }
